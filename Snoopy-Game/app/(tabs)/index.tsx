@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   StyleSheet, 
   Alert,
-  Image // 1. Importamos o componente Image
+  Image,
+  BackHandler
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 // --- DEFINIÇÕES DO JOGO ---
 
-// Os nomes (identificadores) das cartas
 const CARTOON_IMAGES = [
   'Snoopy',
   'Woodstock',
@@ -20,13 +21,10 @@ const CARTOON_IMAGES = [
   'Sally',
 ];
 
-/**
- * 2. O "Mapa" de Imagens
- * Ligamos o nome do identificador (ex: 'Snoopy') ao arquivo de imagem.
- * Ajuste os caminhos/nomes aqui se os seus forem diferentes!
- */
 const IMAGE_MAP: { [key: string]: any } = {
   'Snoopy': require('../../assets/images/snoopy.jpg'),
+  'Snoopyrun': require('../../assets/images/snoopyrun.png'),
+  'Snoopynatal': require('../../assets/images/snoopynatal.png'),
   'Woodstock': require('../../assets/images/woodstock.jpg'),
   'Charlie': require('../../assets/images/charlie.jpg'),
   'Lucy': require('../../assets/images/lucy.jpg'),
@@ -34,8 +32,6 @@ const IMAGE_MAP: { [key: string]: any } = {
   'Sally': require('../../assets/images/sally.jpg'),
 };
 
-
-// Pontuação
 const POINTS_PER_MATCH = 10;
 const PENALTY_PER_MISS = 2;
 
@@ -61,7 +57,7 @@ const createGameBoard = (): Card[] => {
 
   return shuffledImages.map((imageName: string, index: number) => ({
     id: index,
-    image: imageName, // O 'image' aqui continua sendo o NOME (ex: 'Snoopy')
+    image: imageName,
     isFlipped: false,
     isMatched: false,
   }));
@@ -80,7 +76,7 @@ export default function SnoopyGameScreen() {
   const [gameStarted, setGameStarted] = useState(false);
 
   // --- Lógica Principal (handleCardPress, useEffects) ---
-  // (Esta parte não muda em nada)
+  // (Nenhuma mudança aqui, todo o código é o mesmo)
 
   const handleCardPress = (clickedCard: Card) => {
     if (isChecking || clickedCard.isFlipped) {
@@ -129,8 +125,8 @@ export default function SnoopyGameScreen() {
     }
   }, [board, gameStarted, score]);
 
-  // --- Funções Auxiliares (flipCard, resetTurn, resetGame) ---
-  // (Esta parte também não muda)
+  // --- Funções Auxiliares (flipCard, resetTurn, resetGame, handleQuitGame, useFocusEffect) ---
+  // (Nenhuma mudança aqui, todo o código é o mesmo)
 
   const flipCard = (cardId: number, isFlipped: boolean) => {
     setBoard(prevBoard =>
@@ -155,42 +151,95 @@ export default function SnoopyGameScreen() {
     setIsChecking(false);
   };
 
+  const handleQuitGame = () => {
+    Alert.alert(
+      "Sair da Partida",
+      "Deseja voltar para o menu? Sua pontuação será perdida.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sim, Sair",
+          onPress: () => {
+            setGameStarted(false);
+            setScore(0);
+            setBoard([]);
+          },
+        },
+      ]
+    );
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (gameStarted) {
+          handleQuitGame();
+          return true;
+        } else {
+          return false;
+        }
+      };
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress
+      );
+      return () => subscription.remove();
+    }, [gameStarted])
+  );
+
   
   // --- Renderização (O que o usuário vê) ---
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Snoopy-Game</Text>
-      <Text style={styles.scoreText}>Pontuação: {score}</Text>
+      
+      {/* * ===== MUDANÇA PRINCIPAL AQUI =====
+       * Agora o placar SÓ aparece se o jogo começou.
+       * A tela inicial (!gameStarted) agora tem uma imagem "logo".
+       */}
 
       {!gameStarted ? (
-        <TouchableOpacity style={styles.playButton} onPress={resetGame}>
-          <Text style={styles.playButtonText}>Jogar!</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.board}>
-          {board.map((card) => (
-            <TouchableOpacity
-              key={card.id}
-              style={[
-                styles.card,
-                (card.isFlipped || card.isMatched) ? styles.cardFlipped : styles.cardDown
-              ]}
-              onPress={() => handleCardPress(card)}
-              disabled={card.isFlipped || isChecking}
-            >
-              {/* * 3. MUDANÇA PRINCIPAL
-               * Se a carta estiver virada, mostramos a IMAGEM
-               * Se não, mostramos o texto de '?'
-               */}
-              {(card.isFlipped || card.isMatched) ? (
-                // Usamos o 'card.image' (ex: 'Snoopy') para buscar a fonte no IMAGE_MAP
-                <Image source={IMAGE_MAP[card.image]} style={styles.cardImage} />
-              ) : (
-                <Text style={styles.cardTextDown}>?</Text>
-              )}
-            </TouchableOpacity>
-          ))}
+        // Se o jogo NÃO começou (TELA DE MENU)
+        <View style={styles.menuContainer}>
+          <Image 
+            source={IMAGE_MAP['Snoopynatal']} // Usando a imagem do Snoopy como "logo"
+            style={styles.menuLogo}
+          />
+          <TouchableOpacity style={styles.playButton} onPress={resetGame}>
+            <Text style={styles.playButtonText}>Jogar!</Text>
+          </TouchableOpacity>
         </View>
+
+      ) : (
+        // Se o jogo COMEÇOU (TELA DO JOGO)
+        <>
+          {/* O PLACAR FOI MOVIDO PARA AQUI DENTRO */}
+          <Text style={styles.scoreText}>Pontuação: {score}</Text>
+
+          <TouchableOpacity style={styles.quitButton} onPress={handleQuitGame}>
+            <Text style={styles.quitButtonText}>Sair</Text>
+          </TouchableOpacity>
+
+          <View style={styles.board}>
+            {board.map((card) => (
+              <TouchableOpacity
+                key={card.id}
+                style={[
+                  styles.card,
+                  (card.isFlipped || card.isMatched) ? styles.cardFlipped : styles.cardDown
+                ]}
+                onPress={() => handleCardPress(card)}
+                disabled={card.isFlipped || isChecking}
+              >
+                {(card.isFlipped || card.isMatched) ? (
+                  <Image source={IMAGE_MAP[card.image]} style={styles.cardImage} />
+                ) : (
+                  <Text style={styles.cardTextDown}>?</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
       )}
 
     </View>
@@ -208,16 +257,38 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32, // Aumentei um pouco o título
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 10,
+    // Faz o título ficar sempre no topo, mesmo no menu
+    position: 'absolute',
+    top: 60, 
   },
+  
+  // === NOVOS ESTILOS PARA O MENU ===
+  menuContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  menuLogo: {
+    width: 400,
+    height: 400,
+    resizeMode: 'contain',
+    marginBottom: 20,
+  },
+  // ================================
+
   scoreText: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#555',
+    color: '#ff0000ff',
     marginBottom: 20,
+    // Faz o placar ficar fixo abaixo do título
+    position: 'absolute',
+    top: 110,
   },
   playButton: {
     backgroundColor: '#4a90e2',
@@ -231,10 +302,28 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  quitButton: {
+    position: 'absolute',
+    top: 60, // Ajustado para não sobrepor o título
+    left: 20,
+    backgroundColor: '#f44336',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    zIndex: 10,
+    elevation: 5,
+  },
+  quitButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   board: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    // Adicionado marginTop para não ficar atrás do placar/título
+    marginTop: 100, 
   },
   card: {
     width: 80,
@@ -244,7 +333,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden', // Garante que a imagem não vaze
+    overflow: 'hidden',
   },
   cardDown: {
     backgroundColor: '#4a90e2',
@@ -259,12 +348,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
-  /**
-   * 4. NOVO ESTILO para a imagem dentro da carta
-   */
   cardImage: {
     width: '90%',
     height: '90%',
-    resizeMode: 'contain', // 'contain' garante que a imagem caiba sem distorcer
+    resizeMode: 'contain',
   },
 });

@@ -1,35 +1,24 @@
+// Em app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
 import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
+      // Esconde a barra de abas
+      tabBar={() => null} 
+      
+      // Esconde o header (título)
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
+      }}
+    >
+      {/* Vamos focar APENAS na tela 'index'.
+        Removi a 'explore' para evitar confusão.
+        Se você tiver um arquivo 'explore.tsx', pode até apagá-lo.
+      */}
+      <Tabs.Screen name="index" />
+
     </Tabs>
   );
 }
